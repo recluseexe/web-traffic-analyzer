@@ -72,6 +72,3 @@ def main():
     for pkt in packets:
         process_packet(pkt)
 
-
-if __name__ == "__main__":
-    main()
