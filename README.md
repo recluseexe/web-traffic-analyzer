@@ -1,42 +1,77 @@
-A simple Python packet sniffer built with Scapy as a learning project for cybersecurity and networking fundamentals. It captures live network traffic and identifies HTTP/HTTPS (web) traffic, printing the source IP, destination IP, protocol, and ports for each packet.
+"""
+Simple Web Traffic Analyzer
+----------------------------
+A beginner cybersecurity/networking project using Scapy.
 
-## Requirements
+Captures live network packets and prints out HTTP/HTTPS
+(port 80/443) traffic, showing source IP, destination IP,
+protocol, and ports.
 
-- Python 3.8+
-- Scapy (`pip install scapy`)
-- **Windows only:** Npcap installed with "Install Npcap in WinPcap API-compatible Mode" checked
-- **Linux/macOS:** libpcap (usually preinstalled)
+Requirements:
+- Python 3
+- Scapy (pip install scapy)
+- Npcap installed (Windows) with "WinPcap API-compatible mode" checked
+- Must be run with Administrator (Windows) / sudo (Linux/macOS) privileges,
+  since raw packet capture requires elevated permissions.
 
-## Installation
+Usage:
+    python webtraffic.py
 
-pip install scapy
+Note: Change IFACE below to match your own network adapter name.
+Run scapy.show_interfaces() to list available adapters.
+"""
 
-## Usage
+import scapy.all as scapy
 
-**Windows** (run from an Administrator PowerShell/Command Prompt):
-python webtraffic.py
+# Change this to match your own active network adapter
+IFACE = "Intel(R) Wireless-AC 9462"
 
-**Linux/macOS:**
-sudo python3 webtraffic.py
+# Number of packets to capture before stopping
+PACKET_COUNT = 20
 
-Before running, open `webtraffic.py` and update the `IFACE` variable to match your own network adapter name. List adapters with:
 
-    import scapy.all as scapy
-    scapy.show_interfaces()
+def get_protocol_name(proto_num):
+    """Convert an IP protocol number into a human-readable name."""
+    if proto_num == 6:
+        return "TCP"
+    elif proto_num == 17:
+        return "UDP"
+    else:
+        return str(proto_num)
 
-## Example Output
 
-    TCP | 192.168.100.65:53073 -> 150.171.109.163:443
-    TCP | 150.171.109.163:443 -> 192.168.100.65:53073
+def process_packet(pkt):
+    """Extract and print relevant fields from a single packet, if it's web traffic."""
+    if not pkt.haslayer(scapy.IP):
+        return
 
-## Roadmap / Possible Improvements
+    src_ip = pkt[scapy.IP].src
+    dst_ip = pkt[scapy.IP].dst
+    proto_name = get_protocol_name(pkt[scapy.IP].proto)
 
-- Live loop using Scapy's prn= callback instead of fixed count
-- Use Scapy's BPF filter syntax (sniff(filter="tcp port 80 or tcp port 443"))
-- Per-IP or per-protocol packet counters
-- Log output to a file
-- Resolve IPs to hostnames
+    sport = None
+    dport = None
+    if pkt.haslayer(scapy.TCP):
+        sport = pkt[scapy.TCP].sport
+        dport = pkt[scapy.TCP].dport
+    elif pkt.haslayer(scapy.UDP):
+        sport = pkt[scapy.UDP].sport
+        dport = pkt[scapy.UDP].dport
 
-## ⚠️ Ethical Use Notice
+    # Only show HTTP (80) or HTTPS (443) traffic
+    if sport in (80, 443) or dport in (80, 443):
+        print(f"{proto_name} | {src_ip}:{sport} -> {dst_ip}:{dport}")
 
-For educational purposes only, intended for networks you own or have explicit permission to monitor.
+
+def main():
+    print(f"Capturing {PACKET_COUNT} packets on interface: {IFACE}")
+    print("Generate some web traffic (open a browser) while this runs.\n")
+
+    packets = scapy.sniff(iface=IFACE, count=PACKET_COUNT)
+
+    for pkt in packets:
+        process_packet(pkt)
+
+
+if __name__ == "__main__":
+    main()
